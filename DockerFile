@@ -1,9 +1,10 @@
 # Usa una imagen de Node con Python instalado
 FROM node:18-bullseye
 
+RUN pip install -U yt-dlp
 # Instala spotdl
 RUN apt-get update && apt-get install -y python3 python3-pip \
-    && pip3 install spotdl && spotdl --download-ffmpeg && pip install -U yt-dlp
+    && pip3 install spotdl && spotdl --download-ffmpeg
 
 # Crea y usa un directorio de trabajo
 WORKDIR /app
