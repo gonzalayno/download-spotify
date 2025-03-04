@@ -6,7 +6,7 @@ RUN apt-get update && apt-get install -y python3 python3-pip \
 
 # Instala spotdl
 RUN apt-get update && apt-get install -y python3 python3-pip \
-    && pip3 install spotdl && spotdl --download-ffmpeg
+    && pip3 install spotdl && spotdl --download-ffmpeg && spotdl --download-ffmpeg yt-dlp
 
 # Crea y usa un directorio de trabajo
 WORKDIR /app
