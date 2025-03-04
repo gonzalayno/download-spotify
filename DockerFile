@@ -3,7 +3,7 @@ FROM node:18-bullseye
 
 # Instala spotdl
 RUN apt-get update && apt-get install -y python3 python3-pip \
-    && pip3 install spotdl
+    && pip3 install spotdl && spotdl --download-ffmpeg
 
 # Crea y usa un directorio de trabajo
 WORKDIR /app
