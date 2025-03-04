@@ -1,0 +1,21 @@
+# Usa una imagen de Node con Python instalado
+FROM node:18-bullseye
+
+# Instala spotdl
+RUN apt-get update && apt-get install -y python3 python3-pip \
+    && pip3 install spotdl
+
+# Crea y usa un directorio de trabajo
+WORKDIR /app
+
+# Copia los archivos del proyecto
+COPY . .
+
+# Instala las dependencias de Node.js
+RUN npm install
+
+# Expone el puerto 3000
+EXPOSE 3000
+
+# Comando para iniciar la aplicación
+CMD ["node", "server.js"]
