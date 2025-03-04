@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Descargador de Música</title>
+</head>
+<body>
+    <h1>Descargar Música</h1>
+
+    <form id="download-form">
+        <input type="text" name="url" placeholder="Ingresa la URL de la canción" required>
+
+        <select name="format" required>
+            <option value="mp3">MP3</option>
+            <option value="flac">FLAC</option>
+            <option value="ogg">OGG</option>
+            <option value="opus">OPUS</option>
+            <option value="m4a">M4A</option>
+            <option value="wav">WAV</option>
+        </select>
+
+        <!-- Input oculto para la ruta -->
+        <input type="hidden" id="path" name="path">
+        <button type="button" onclick="selectFolder()">Seleccionar Carpeta</button>
+        <span id="selected-folder">Ninguna carpeta seleccionada</span>
+
+        <button type="submit">Descargar</button>
+    </form>
+
+    <h2>Log en tiempo real:</h2>
+    <pre id="log"></pre>
+
+    <script>
+        async function selectFolder() {
+            const folderHandle = await window.showDirectoryPicker();
+            document.getElementById('path').value = folderHandle.name; // Guardar ruta
+            document.getElementById('selected-folder').textContent = `Carpeta seleccionada: ${folderHandle.name}`;
+        }
+
+        document.getElementById('download-form').onsubmit = function(event) {
+            event.preventDefault();
+
+            const formData = new FormData(event.target);
+            const url = formData.get('url');
+            const format = formData.get('format');
+            const path = formData.get('path');
+
+            if (!path) {
+                alert("Por favor, selecciona una carpeta.");
+                return;
+            }
+
+            fetch('/download', {
+                method: 'POST',
+                body: JSON.stringify({ url, format, path }),
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            const logElement = document.getElementById('log');
+            logElement.innerHTML = "Iniciando descarga...\n";
+
+            // Conectar al log en tiempo real
+            const eventSource = new EventSource('/logs');
+
+            eventSource.onmessage = function(event) {
+                logElement.innerHTML += event.data + "\n";
+            };
+
+            eventSource.onerror = function() {
+                logElement.innerHTML += "Conexión finalizada.\n";
+                eventSource.close();
+            };
+        };
+    </script>
+</body>
+</html>
