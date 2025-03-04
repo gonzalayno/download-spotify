@@ -1,0 +1,7 @@
+services:
+  - name: spotdl-app
+    type: web
+    env: python
+    buildCommand: |
+      pip install spotdl
+    startCommand: node server.js
