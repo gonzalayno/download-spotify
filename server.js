@@ -44,7 +44,7 @@ app.post('/download', (req, res) => {
     const fullDownloadPath = path.join(downloadPath, '%(title)s.%(ext)s');
 
     // Ejecutar spotdl con el formato y la ruta seleccionadossvcvc
-    const downloadProcess = spawn('spotdl', ['download', url, '--format', format, '--output', '/home/glayno/Descargas/testing_musica','--proxy https://192.252.214.20:15864']);
+    const downloadProcess = spawn('spotdl', ['download', url, '--format', format, '--output', '/home/glayno/Descargas/testing_musica']);
 
     downloadProcess.stdout.on('data', (data) => {
         console.log(`Salida: ${data}`);
