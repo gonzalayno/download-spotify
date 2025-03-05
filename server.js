@@ -44,7 +44,7 @@ app.post('/download', (req, res) => {
     const fullDownloadPath = path.join(downloadPath, '%(title)s.%(ext)s');
 
     // Ejecutar spotdl con el formato y la ruta seleccionadossvcvc
-    const downloadProcess = spawn('spotdl', ['--cookie-file','cookies.json','--log-level' ,'DEBUG','download', url, '--format', format, '--output', '/home/glayno/Descargas/testing_musica']);
+    const downloadProcess = spawn('spotdl', ['--cookie-file','www.youtube.com_cookies.txt','--log-level' ,'DEBUG','download', url, '--format', format, '--output', '/home/glayno/Descargas/testing_musica']);
 
     downloadProcess.stdout.on('data', (data) => {
         console.log(`Salida: ${data}`);
