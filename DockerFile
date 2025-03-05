@@ -1,23 +1,22 @@
-# Usa una imagen de Node con Python instalado
-FROM node:18-bullseye
+# Usa una imagen oficial con Python
+FROM python:3.9
 
+# Instala dependencias
+RUN apt-get update && apt-get install -y ffmpeg
 
-# Instala spotdl
-RUN apt-get update && apt-get install -y python3 python3-pip \
-    && pip3 install -U yt-dlp spotdl
+# Instala spotdl y yt-dlp
+RUN pip install --no-cache-dir spotdl yt-dlp
 
-run spotdl --download-ffmpeg
-
-# Crea y usa un directorio de trabajo
+# Instala Node.js y dependencias
+RUN apt-get install -y curl && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && apt-get install -y nodejs
 WORKDIR /app
-
-# Copia los archivos del proyecto
-COPY . .
-
-# Instala las dependencias de Node.js
+COPY package*.json ./
 RUN npm install
 
-# Expone el puerto 3000
+# Copia todos los archivos al contenedor
+COPY . .
+
+# Expone el puerto (Render lo detecta)
 EXPOSE 3000
 
 # Comando para iniciar la aplicación
