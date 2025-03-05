@@ -7,6 +7,8 @@ RUN apt-get update && apt-get install -y ffmpeg
 # Instala spotdl y yt-dlp
 RUN pip install --no-cache-dir spotdl yt-dlp
 
+RUN apt-get update && apt-get install -y tor
+
 # Instala Node.js y dependencias
 RUN apt-get install -y curl && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && apt-get install -y nodejs
 WORKDIR /app
@@ -20,4 +22,4 @@ COPY . .
 EXPOSE 3000
 
 # Comando para iniciar la aplicación
-CMD ["node", "server.js"]
+CMD ["/entrypoint.sh", "python3", "main.py"]
