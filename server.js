@@ -75,7 +75,7 @@ app.post('/download', (req, res) => {
     // Configurar argumentos para spotdl
     const spotdlArgs = [
         '--cookie-file', 'www.youtube.com_cookies.txt',
-        '--proxy', 'http://192.168.1.100:8080',
+        '--proxy', 'http://187.190.127.212:8081',
         'download', url,
         '--format', format,
         '--output', path.join(downloadPath, '%(title)s.%(ext)s')
