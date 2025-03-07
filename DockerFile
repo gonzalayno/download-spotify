@@ -1,14 +1,6 @@
 # Usa una imagen oficial con Python
 FROM python:3.9
-FROM ubuntu:latest
 
-RUN apt-get update && apt-get install -y openvpn curl
-
-RUN curl -o ProtonVPN_servers.ovpn https://protonvpn.com/download/ProtonVPN_servers.ovpn
-
-ENV PROTONVPN_USER gonza.layno@gmail.com
-ENV PROTONVPN_PASSWORD N2U8y2y2
-CMD openvpn --config ProtonVPN_servers.ovpn --auth-user-pass <(echo "$PROTONVPN_USER\n$PROTONVPN_PASSWORD")
 # Instala dependencias
 RUN apt-get update && apt-get install -y ffmpeg
 
@@ -16,7 +8,19 @@ RUN apt-get update && apt-get install -y ffmpeg
 RUN pip install --no-cache-dir spotdl yt-dlp
 
 # Instala Node.js y dependencias
-RUN apt-get install -y curl && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && apt-get install -y nodejs
+RUN apt-get update && apt-get install -y curl && \
+    curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
+    apt-get install -y nodejs
+
+#VPN
+RUN apt-get update && apt-get install -y openvpn curl
+
+RUN curl -o ProtonVPN_servers.ovpn https://protonvpn.com/download/ProtonVPN_servers.ovpn
+
+ENV PROTONVPN_USER gonza.layno@gmail.com
+ENV PROTONVPN_PASSWORD N2U8y2y2
+CMD openvpn --config ProtonVPN_servers.ovpn --auth-user-pass <(echo "$PROTONVPN_USER\n$PROTONVPN_PASSWORD")
+
 WORKDIR /app
 COPY package*.json ./
 RUN npm install
