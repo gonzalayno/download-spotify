@@ -285,6 +285,8 @@ def download_file(download_id, filename):
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
+    import os
+    
     print("\n" + "="*60)
     print("🎵  SPOTIFY PLAYLIST DOWNLOADER")
     print("="*60)
@@ -296,14 +298,19 @@ if __name__ == '__main__':
         exit(1)
     
     print("\n✅ Configuración válida")
-    print(f"📍 Servidor iniciando en: http://{Config.HOST}:{Config.PORT}")
+    
+    # Configuración para Railway
+    port = int(os.environ.get('PORT', Config.PORT))
+    host = os.environ.get('HOST', Config.HOST)
+    
+    print(f"📍 Servidor iniciando en: http://{host}:{port}")
     print(f"🎧 Formato de audio: {Config.AUDIO_FORMAT} @ {Config.AUDIO_BITRATE}")
     print("\n💡 Presiona Ctrl+C para detener el servidor")
     print("="*60 + "\n")
     
     app.run(
         debug=Config.DEBUG,
-        host=Config.HOST,
-        port=Config.PORT
+        host=host,
+        port=port
     )
 

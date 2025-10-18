@@ -16,7 +16,7 @@ class Config:
     
     # Flask
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
-    DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
+    DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'  # False por defecto para producción
     HOST = os.getenv('HOST', '0.0.0.0')
     PORT = int(os.getenv('PORT', 5000))
     
