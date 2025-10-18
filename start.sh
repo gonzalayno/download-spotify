@@ -62,4 +62,3 @@ echo ""
 echo "🚀 Iniciando servidor..."
 echo ""
 python app.py
-
