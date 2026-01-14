@@ -314,11 +314,11 @@
         </div>
 
         <div class="input-group">
-            <label for="playlistUrl">URL de la Playlist de Spotify</label>
+            <label for="playlistUrl">URL de Spotify (Playlist o Canción)</label>
             <input 
                 type="text" 
                 id="playlistUrl" 
-                placeholder="https://open.spotify.com/playlist/..."
+                placeholder="https://open.spotify.com/playlist/... o https://open.spotify.com/track/..."
                 autocomplete="off"
             >
         </div>
@@ -359,15 +359,16 @@
         </button>
 
         <div class="playlist-info" id="playlistInfo">
-            <img id="playlistImage" class="playlist-image" src="" alt="Playlist Cover">
+            <img id="playlistImage" class="playlist-image" src="" alt="Cover">
             <h3 id="playlistName"></h3>
-            <p><strong>Creador:</strong> <span id="playlistOwner"></span></p>
+            <p id="playlistOwner" style="display: none;"><strong>Creador:</strong> <span id="ownerName"></span></p>
+            <p id="playlistArtist" style="display: none;"><strong>Artista:</strong> <span id="artistName"></span></p>
             <p><strong>Canciones:</strong> <span id="playlistTracks"></span></p>
             <p id="playlistDescription"></p>
         </div>
 
         <button class="btn" id="downloadBtn" onclick="startDownload()" style="display: none;">
-            ⬇️ Descargar Playlist
+            ⬇️ Descargar
         </button>
 
         <div class="progress-container" id="progressContainer">
@@ -397,13 +398,14 @@
         <div class="instructions">
             <h4>📖 Instrucciones:</h4>
             <ol>
-                <li>Copia la URL de una playlist de Spotify</li>
+                <li>Copia la URL de una playlist o canción de Spotify</li>
                 <li>Pégala en el campo de arriba</li>
                 <li>Haz clic en "Obtener Información"</li>
-                <li>Verifica que sea la playlist correcta</li>
-                <li>Haz clic en "Descargar Playlist"</li>
+                <li>Verifica que sea correcto</li>
+                <li>Opcional: Selecciona una carpeta donde guardar</li>
+                <li>Haz clic en "Descargar"</li>
                 <li>Espera a que se complete la descarga</li>
-                <li>Descarga el archivo ZIP con todas las canciones</li>
+                <li>Las canciones se guardarán automáticamente</li>
             </ol>
         </div>
     </div>
@@ -547,8 +549,8 @@
                 return;
             }
 
-            if (!playlistUrl.includes('spotify.com/playlist/')) {
-                showMessage('URL inválida. Debe ser una playlist de Spotify', 'error');
+            if (!playlistUrl.includes('spotify.com/playlist/') && !playlistUrl.includes('spotify.com/track/')) {
+                showMessage('URL inválida. Debe ser una playlist o canción de Spotify', 'error');
                 return;
             }
 
@@ -595,8 +597,20 @@
             }
             
             document.getElementById('playlistName').textContent = data.name;
-            document.getElementById('playlistOwner').textContent = data.owner || 'Desconocido';
             document.getElementById('playlistTracks').textContent = data.tracks;
+            
+            // Mostrar información según el tipo (playlist o track)
+            if (data.type === 'playlist') {
+                // Es una playlist
+                document.getElementById('playlistOwner').style.display = 'block';
+                document.getElementById('playlistArtist').style.display = 'none';
+                document.getElementById('ownerName').textContent = data.owner || 'Desconocido';
+            } else if (data.type === 'track') {
+                // Es una canción
+                document.getElementById('playlistOwner').style.display = 'none';
+                document.getElementById('playlistArtist').style.display = 'block';
+                document.getElementById('artistName').textContent = data.artist || 'Desconocido';
+            }
             
             if (data.description) {
                 document.getElementById('playlistDescription').textContent = data.description;

@@ -65,8 +65,8 @@ def get_spotify_client():
         print(f"Error al inicializar cliente de Spotify: {e}")
         return None
 
-def download_playlist(playlist_url, download_id, custom_folder=None):
-    """Función para descargar playlist en segundo plano"""
+def download_playlist(spotify_url, download_id, custom_folder=None):
+    """Función para descargar playlist o canción en segundo plano"""
     try:
         download_status[download_id]['status'] = 'processing'
         download_status[download_id]['message'] = 'Iniciando descarga...'
@@ -88,44 +88,54 @@ def download_playlist(playlist_url, download_id, custom_folder=None):
         # Guardar la ruta de descarga en el estado para poder acceder a los archivos después
         download_status[download_id]['download_path'] = download_path
         
-        # Configurar spotdl con la nueva API
-        # Configuración completada
-        
-        # Obtener información de la playlist usando Spotify API
-        download_status[download_id]['message'] = 'Obteniendo información de la playlist...'
+        # Obtener información usando Spotify API
+        download_status[download_id]['message'] = 'Obteniendo información...'
         
         # Usar Spotify API para obtener canciones
         sp = get_spotify_client()
         if not sp:
             raise Exception("No se pudo conectar a Spotify API")
         
-        # Extraer ID de la playlist
-        if 'playlist/' in playlist_url:
-            playlist_id = playlist_url.split('playlist/')[1].split('?')[0]
-        else:
-            raise Exception("URL de playlist inválida")
-        
-        # Obtener canciones de la playlist (con paginación para obtener todas)
-        playlist = sp.playlist(playlist_id)
         songs = []
         
-        # Obtener todas las canciones usando paginación
-        results = playlist['tracks']
-        while results:
-            for track in results['items']:
-                if track['track'] and track['track']['name']:
-                    song_info = {
-                        'name': track['track']['name'],
-                        'artist': ', '.join([artist['name'] for artist in track['track']['artists']]),
-                        'url': f"ytsearch:{track['track']['name']} {', '.join([artist['name'] for artist in track['track']['artists']])}"
-                    }
-                    songs.append(song_info)
+        # Detectar si es playlist o track
+        if 'playlist/' in spotify_url:
+            # Es una playlist
+            playlist_id = spotify_url.split('playlist/')[1].split('?')[0]
             
-            # Obtener siguiente página si existe
-            if results['next']:
-                results = sp.next(results)
-            else:
-                break
+            # Obtener canciones de la playlist (con paginación para obtener todas)
+            playlist = sp.playlist(playlist_id)
+            
+            # Obtener todas las canciones usando paginación
+            results = playlist['tracks']
+            while results:
+                for track in results['items']:
+                    if track['track'] and track['track']['name']:
+                        song_info = {
+                            'name': track['track']['name'],
+                            'artist': ', '.join([artist['name'] for artist in track['track']['artists']]),
+                            'url': f"ytsearch:{track['track']['name']} {', '.join([artist['name'] for artist in track['track']['artists']])}"
+                        }
+                        songs.append(song_info)
+                
+                # Obtener siguiente página si existe
+                if results['next']:
+                    results = sp.next(results)
+                else:
+                    break
+        elif 'track/' in spotify_url:
+            # Es una canción individual
+            track_id = spotify_url.split('track/')[1].split('?')[0]
+            track = sp.track(track_id)
+            
+            song_info = {
+                'name': track['name'],
+                'artist': ', '.join([artist['name'] for artist in track['artists']]),
+                'url': f"ytsearch:{track['name']} {', '.join([artist['name'] for artist in track['artists']])}"
+            }
+            songs.append(song_info)
+        else:
+            raise Exception("URL de Spotify inválida. Debe ser una playlist o una canción")
         
         total_songs = len(songs)
         download_status[download_id]['total'] = total_songs
@@ -198,48 +208,60 @@ def index():
 
 @app.route('/api/playlist-info', methods=['POST'])
 def get_playlist_info():
-    """Obtener información de la playlist"""
+    """Obtener información de playlist o canción"""
     try:
         data = request.json
-        playlist_url = data.get('playlist_url')
+        spotify_url = data.get('playlist_url') or data.get('url')
         
-        if not playlist_url:
-            return jsonify({'error': 'URL de playlist requerida'}), 400
+        if not spotify_url:
+            return jsonify({'error': 'URL de Spotify requerida'}), 400
         
-        # Extraer ID de la playlist
-        if 'playlist/' in playlist_url:
-            playlist_id = playlist_url.split('playlist/')[1].split('?')[0]
-        else:
-            return jsonify({'error': 'URL de playlist inválida'}), 400
-        
-        # Obtener información de Spotify
         sp = get_spotify_client()
-        if sp:
+        if not sp:
+            return jsonify({'error': 'Credenciales de Spotify no configuradas'}), 400
+        
+        # Detectar si es playlist o track
+        if 'playlist/' in spotify_url:
+            # Es una playlist
+            playlist_id = spotify_url.split('playlist/')[1].split('?')[0]
             playlist = sp.playlist(playlist_id)
             return jsonify({
+                'type': 'playlist',
                 'name': playlist['name'],
                 'owner': playlist['owner']['display_name'],
                 'tracks': playlist['tracks']['total'],
                 'image': playlist['images'][0]['url'] if playlist['images'] else None,
                 'description': playlist.get('description', '')
             })
+        elif 'track/' in spotify_url:
+            # Es una canción individual
+            track_id = spotify_url.split('track/')[1].split('?')[0]
+            track = sp.track(track_id)
+            return jsonify({
+                'type': 'track',
+                'name': track['name'],
+                'artist': ', '.join([artist['name'] for artist in track['artists']]),
+                'album': track['album']['name'],
+                'tracks': 1,  # Solo una canción
+                'image': track['album']['images'][0]['url'] if track['album']['images'] else None,
+                'description': f"Canción de {', '.join([artist['name'] for artist in track['artists']])}"
+            })
         else:
-            # Si no hay credenciales, devolver error
-            return jsonify({'error': 'Credenciales de Spotify no configuradas'}), 400
+            return jsonify({'error': 'URL de Spotify inválida. Debe ser una playlist o una canción'}), 400
             
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/download', methods=['POST'])
 def start_download():
-    """Iniciar descarga de playlist"""
+    """Iniciar descarga de playlist o canción"""
     try:
         data = request.json
-        playlist_url = data.get('playlist_url')
+        spotify_url = data.get('playlist_url') or data.get('url')
         custom_folder = data.get('custom_folder')  # Carpeta personalizada
         
-        if not playlist_url:
-            return jsonify({'error': 'URL de playlist requerida'}), 400
+        if not spotify_url:
+            return jsonify({'error': 'URL de Spotify requerida'}), 400
         
         # Generar ID único para la descarga
         download_id = str(uuid.uuid4())
@@ -257,7 +279,7 @@ def start_download():
         # Iniciar descarga en segundo plano
         thread = threading.Thread(
             target=download_playlist,
-            args=(playlist_url, download_id, custom_folder)
+            args=(spotify_url, download_id, custom_folder)
         )
         thread.daemon = True
         thread.start()
