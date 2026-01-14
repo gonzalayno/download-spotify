@@ -52,7 +52,7 @@ if [ ! -f ".env" ]; then
         echo "❌ No se pudo crear el archivo .env"
         echo "   Por favor, crea manualmente un archivo .env con:"
         echo "   SPOTIFY_CLIENT_ID=tu_client_id"
-        echo "   SPOTIFY_CLIENT_SECRET=tu_client_secret"
+        echo "   -=tu_client_secret"
         exit 1
     fi
 fi

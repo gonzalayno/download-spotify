@@ -65,15 +65,28 @@ def get_spotify_client():
         print(f"Error al inicializar cliente de Spotify: {e}")
         return None
 
-def download_playlist(playlist_url, download_id):
+def download_playlist(playlist_url, download_id, custom_folder=None):
     """Función para descargar playlist en segundo plano"""
     try:
         download_status[download_id]['status'] = 'processing'
         download_status[download_id]['message'] = 'Iniciando descarga...'
         
+        # Usar carpeta personalizada si se proporciona, sino usar la carpeta por defecto
+        if custom_folder and custom_folder.strip():
+            # Validar y crear la carpeta personalizada
+            custom_folder = os.path.abspath(custom_folder.strip())
+            if not os.path.exists(custom_folder):
+                os.makedirs(custom_folder, exist_ok=True)
+            base_folder = custom_folder
+        else:
+            base_folder = DOWNLOAD_FOLDER
+        
         # Crear carpeta específica para esta descarga
-        download_path = os.path.join(DOWNLOAD_FOLDER, download_id)
+        download_path = os.path.join(base_folder, download_id)
         os.makedirs(download_path, exist_ok=True)
+        
+        # Guardar la ruta de descarga en el estado para poder acceder a los archivos después
+        download_status[download_id]['download_path'] = download_path
         
         # Configurar spotdl con la nueva API
         # Configuración completada
@@ -92,17 +105,27 @@ def download_playlist(playlist_url, download_id):
         else:
             raise Exception("URL de playlist inválida")
         
-        # Obtener canciones de la playlist
+        # Obtener canciones de la playlist (con paginación para obtener todas)
         playlist = sp.playlist(playlist_id)
         songs = []
-        for track in playlist['tracks']['items']:
-            if track['track'] and track['track']['name']:
-                song_info = {
-                    'name': track['track']['name'],
-                    'artist': ', '.join([artist['name'] for artist in track['track']['artists']]),
-                    'url': f"ytsearch:{track['track']['name']} {', '.join([artist['name'] for artist in track['track']['artists']])}"
-                }
-                songs.append(song_info)
+        
+        # Obtener todas las canciones usando paginación
+        results = playlist['tracks']
+        while results:
+            for track in results['items']:
+                if track['track'] and track['track']['name']:
+                    song_info = {
+                        'name': track['track']['name'],
+                        'artist': ', '.join([artist['name'] for artist in track['track']['artists']]),
+                        'url': f"ytsearch:{track['track']['name']} {', '.join([artist['name'] for artist in track['track']['artists']])}"
+                    }
+                    songs.append(song_info)
+            
+            # Obtener siguiente página si existe
+            if results['next']:
+                results = sp.next(results)
+            else:
+                break
         
         total_songs = len(songs)
         download_status[download_id]['total'] = total_songs
@@ -146,11 +169,6 @@ def download_playlist(playlist_url, download_id):
                 
             except Exception as e:
                 download_status[download_id]['message'] = f'Error descargando {song["name"]}: {str(e)}'
-                # Asegurar que volvemos al directorio original
-                try:
-                    os.chdir(original_dir)
-                except:
-                    pass
                 continue
         
         # Verificar archivos descargados (incluyendo subdirectorios)
@@ -218,6 +236,7 @@ def start_download():
     try:
         data = request.json
         playlist_url = data.get('playlist_url')
+        custom_folder = data.get('custom_folder')  # Carpeta personalizada
         
         if not playlist_url:
             return jsonify({'error': 'URL de playlist requerida'}), 400
@@ -238,7 +257,7 @@ def start_download():
         # Iniciar descarga en segundo plano
         thread = threading.Thread(
             target=download_playlist,
-            args=(playlist_url, download_id)
+            args=(playlist_url, download_id, custom_folder)
         )
         thread.daemon = True
         thread.start()
@@ -272,7 +291,22 @@ def cancel_download_endpoint(download_id):
 def download_file(download_id, filename):
     """Descargar archivo individual"""
     try:
-        file_path = os.path.join(DOWNLOAD_FOLDER, download_id, filename)
+        # Obtener la ruta de descarga guardada en el estado
+        if download_id in download_status and 'download_path' in download_status[download_id]:
+            download_path = download_status[download_id]['download_path']
+            file_path = os.path.join(download_path, filename)
+        else:
+            # Fallback: buscar en la carpeta por defecto
+            file_path = os.path.join(DOWNLOAD_FOLDER, download_id, filename)
+        
+        if not os.path.exists(file_path):
+            # Si no está ahí, buscar en todas las subcarpetas
+            search_path = download_path if download_id in download_status and 'download_path' in download_status[download_id] else DOWNLOAD_FOLDER
+            for root, dirs, files in os.walk(search_path):
+                if download_id in root and filename in files:
+                    file_path = os.path.join(root, filename)
+                    break
+        
         if os.path.exists(file_path):
             return send_file(
                 file_path,

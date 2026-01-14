@@ -1,5 +1,5 @@
 # Credenciales de Spotify API
 # Obtén tus credenciales en: https://developer.spotify.com/dashboard
 
-SPOTIFY_CLIENT_ID=tu_client_id_aqui
-SPOTIFY_CLIENT_SECRET=tu_client_secret_aqui
+SPOTIFY_CLIENT_ID=cfad2ac6d87742c3a35cee267a1370e5
+SPOTIFY_CLIENT_SECRET=595e03083f9140ff88ed17bb360d0d5c

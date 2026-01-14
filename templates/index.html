@@ -323,6 +323,19 @@
             >
         </div>
 
+        <div class="input-group" id="folderGroup" style="display: none;">
+            <label for="customFolder">📁 Carpeta de Descarga (Opcional)</label>
+            <input 
+                type="text" 
+                id="customFolder" 
+                placeholder="Dejar vacío para usar carpeta por defecto"
+                autocomplete="off"
+            >
+            <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
+                Ejemplo: /home/usuario/Música o C:\Users\Usuario\Music
+            </small>
+        </div>
+
         <button class="btn" id="infoBtn" onclick="getPlaylistInfo()">
             📋 Obtener Información
         </button>
@@ -423,6 +436,7 @@
                 if (response.ok) {
                     displayPlaylistInfo(data);
                     document.getElementById('downloadBtn').style.display = 'block';
+                    document.getElementById('folderGroup').style.display = 'block';
                     showMessage('Información obtenida correctamente', 'success');
                 } else {
                     showMessage(data.error || 'Error al obtener información', 'error');
@@ -460,6 +474,7 @@
 
         async function startDownload() {
             const playlistUrl = document.getElementById('playlistUrl').value.trim();
+            const customFolder = document.getElementById('customFolder').value.trim();
             
             const downloadBtn = document.getElementById('downloadBtn');
             downloadBtn.disabled = true;
@@ -474,7 +489,10 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ playlist_url: playlistUrl })
+                    body: JSON.stringify({ 
+                        playlist_url: playlistUrl,
+                        custom_folder: customFolder || null
+                    })
                 });
 
                 const data = await response.json();
