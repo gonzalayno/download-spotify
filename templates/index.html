@@ -348,7 +348,7 @@
                 </span>
             </div>
             <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
-                <strong>Nota:</strong> Si la app está en un servidor remoto, escribe la ruta del servidor. Si está local, puedes seleccionar una carpeta.
+                <strong>💡 Importante:</strong> Selecciona una carpeta en TU computadora donde quieres guardar las canciones. Las canciones se guardarán directamente ahí cuando se descarguen.
             </small>
             <input type="text" id="customFolderText" placeholder="O escribe la ruta completa aquí (ej: /home/usuario/Música)" style="width: 100%; padding: 10px; margin-top: 10px; border: 2px solid #e0e0e0; border-radius: 5px; display: none;">
             <input type="hidden" id="customFolder" value="">
@@ -609,10 +609,10 @@
 
         async function startDownload() {
             const playlistUrl = document.getElementById('playlistUrl').value.trim();
-            // Obtener la carpeta del input hidden o del input de texto si existe
-            const customFolderInput = document.getElementById('customFolder');
-            const customFolderText = document.getElementById('customFolderText');
-            const customFolder = (customFolderText && customFolderText.value.trim()) || customFolderInput.value.trim();
+            
+            // Ya no necesitamos enviar la carpeta al servidor porque las descargas
+            // se guardarán directamente en la carpeta seleccionada por el usuario
+            // El servidor solo necesita procesar y servir los archivos temporalmente
             
             const downloadBtn = document.getElementById('downloadBtn');
             downloadBtn.disabled = true;
@@ -629,7 +629,7 @@
                     },
                     body: JSON.stringify({ 
                         playlist_url: playlistUrl,
-                        custom_folder: customFolder || null
+                        custom_folder: null  // Ya no se usa, pero mantenemos compatibilidad
                     })
                 });
 
@@ -733,9 +733,67 @@
             }
         }
 
-        function downloadSongsIndividually(files) {
+        async function downloadSongsIndividually(files) {
             if (!currentDownloadId || !files || files.length === 0) return;
             
+            // Si el usuario seleccionó una carpeta, usar la API para guardar directamente ahí
+            if (selectedFolderHandle) {
+                await downloadToSelectedFolder(files);
+            } else {
+                // Fallback: descarga tradicional a la carpeta de descargas del navegador
+                downloadToDefaultFolder(files);
+            }
+        }
+
+        async function downloadToSelectedFolder(files) {
+            const autoDownload = document.getElementById('autoDownload');
+            autoDownload.style.display = 'block';
+            
+            try {
+                for (let i = 0; i < files.length; i++) {
+                    const filename = files[i];
+                    const downloadUrl = `/api/download-file/${currentDownloadId}/${encodeURIComponent(filename)}`;
+                    
+                    // Actualizar indicador
+                    autoDownload.textContent = 
+                        `🎵 Descargando canción ${i + 1}/${files.length}: ${filename}`;
+                    
+                    try {
+                        // Obtener el archivo del servidor como blob
+                        const response = await fetch(downloadUrl);
+                        if (!response.ok) {
+                            throw new Error(`Error al descargar ${filename}`);
+                        }
+                        
+                        const blob = await response.blob();
+                        
+                        // Crear un archivo en la carpeta seleccionada
+                        const fileHandle = await selectedFolderHandle.getFileHandle(filename, { create: true });
+                        const writable = await fileHandle.createWritable();
+                        await writable.write(blob);
+                        await writable.close();
+                    } catch (error) {
+                        console.error(`Error descargando ${filename}:`, error);
+                        // Continuar con la siguiente canción
+                        continue;
+                    }
+                    
+                    // Pequeña pausa entre descargas
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+                
+                // Todas las canciones descargadas
+                autoDownload.style.display = 'none';
+                showMessage(`¡Todas las ${files.length} canciones guardadas en la carpeta seleccionada!`, 'success');
+            } catch (error) {
+                console.error('Error en descarga:', error);
+                showMessage('Error al guardar en la carpeta seleccionada. Intentando descarga tradicional...', 'error');
+                // Fallback a descarga tradicional
+                downloadToDefaultFolder(files);
+            }
+        }
+
+        function downloadToDefaultFolder(files) {
             let currentIndex = 0;
             
             function downloadNext() {
@@ -747,7 +805,7 @@
                 }
                 
                 const filename = files[currentIndex];
-                const downloadUrl = `/api/download-file/${currentDownloadId}/${filename}`;
+                const downloadUrl = `/api/download-file/${currentDownloadId}/${encodeURIComponent(filename)}`;
                 
                 // Crear elemento de enlace invisible
                 const link = document.createElement('a');
@@ -771,6 +829,7 @@
             }
             
             // Iniciar descarga de la primera canción
+            document.getElementById('autoDownload').style.display = 'block';
             downloadNext();
         }
 
