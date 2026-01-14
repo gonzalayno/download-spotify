@@ -324,16 +324,34 @@
         </div>
 
         <div class="input-group" id="folderGroup" style="display: none;">
-            <label for="customFolder">📁 Carpeta de Descarga (Opcional)</label>
-            <input 
-                type="text" 
-                id="customFolder" 
-                placeholder="Dejar vacío para usar carpeta por defecto"
-                autocomplete="off"
-            >
+            <label>📁 Carpeta de Descarga (Opcional)</label>
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <button 
+                    type="button" 
+                    class="btn" 
+                    id="selectFolderBtn" 
+                    onclick="selectFolder()"
+                    style="width: auto; padding: 10px 20px; margin: 0; flex-shrink: 0;"
+                >
+                    📂 Seleccionar Carpeta
+                </button>
+                <button 
+                    type="button" 
+                    class="btn" 
+                    onclick="clearFolderSelection()"
+                    style="width: auto; padding: 10px 15px; margin: 0; flex-shrink: 0; background: #666;"
+                >
+                    ✖️ Limpiar
+                </button>
+                <span id="selectedFolderPath" style="color: #666; font-size: 14px; flex: 1; min-width: 200px;">
+                    (Carpeta por defecto)
+                </span>
+            </div>
             <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
-                Ejemplo: /home/usuario/Música o C:\Users\Usuario\Music
+                <strong>Nota:</strong> Si la app está en un servidor remoto, escribe la ruta del servidor. Si está local, puedes seleccionar una carpeta.
             </small>
+            <input type="text" id="customFolderText" placeholder="O escribe la ruta completa aquí (ej: /home/usuario/Música)" style="width: 100%; padding: 10px; margin-top: 10px; border: 2px solid #e0e0e0; border-radius: 5px; display: none;">
+            <input type="hidden" id="customFolder" value="">
         </div>
 
         <button class="btn" id="infoBtn" onclick="getPlaylistInfo()">
@@ -392,6 +410,7 @@
 
     <script>
         let currentDownloadId = null;
+        let selectedFolderHandle = null;
 
         function showMessage(message, type = 'info') {
             const statusMessage = document.getElementById('statusMessage');
@@ -402,6 +421,122 @@
         function hideMessage() {
             const statusMessage = document.getElementById('statusMessage');
             statusMessage.classList.remove('show');
+        }
+
+        function clearFolderSelection() {
+            selectedFolderHandle = null;
+            document.getElementById('selectedFolderPath').textContent = '(Carpeta por defecto)';
+            document.getElementById('selectedFolderPath').style.color = '#666';
+            document.getElementById('selectedFolderPath').style.fontWeight = 'normal';
+            document.getElementById('customFolder').value = '';
+            const textInput = document.getElementById('customFolderText');
+            if (textInput) {
+                textInput.value = '';
+                textInput.style.display = 'none';
+            }
+            showMessage('Selección de carpeta limpiada. Se usará la carpeta por defecto.', 'info');
+        }
+
+        async function selectFolder() {
+            try {
+                // Intentar usar la File System Access API moderna (Chrome/Edge)
+                if ('showDirectoryPicker' in window) {
+                    const directoryHandle = await window.showDirectoryPicker();
+                    selectedFolderHandle = directoryHandle;
+                    
+                    // Obtener el nombre de la carpeta
+                    const folderName = directoryHandle.name;
+                    
+                    // Mostrar el nombre de la carpeta seleccionada
+                    document.getElementById('selectedFolderPath').textContent = `📁 ${folderName}`;
+                    document.getElementById('selectedFolderPath').style.color = '#1DB954';
+                    document.getElementById('selectedFolderPath').style.fontWeight = '600';
+                    
+                    // Nota: Por seguridad del navegador, no podemos obtener la ruta completa
+                    // Guardamos el handle para uso futuro, pero para el servidor necesitamos la ruta
+                    // En este caso, usaremos el nombre de la carpeta y el usuario puede completar la ruta si es necesario
+                    document.getElementById('customFolder').value = folderName;
+                    
+                    // Mostrar el input de texto para que el usuario pueda completar la ruta si es necesario
+                    const textInput = document.getElementById('customFolderText');
+                    textInput.style.display = 'block';
+                    textInput.value = folderName;
+                    textInput.onchange = function() {
+                        document.getElementById('customFolder').value = textInput.value;
+                    };
+                    
+                    showMessage('Carpeta seleccionada: ' + folderName + '. Completa la ruta completa en el campo de texto si es necesario.', 'success');
+                } else {
+                    // Fallback: usar input file con webkitdirectory para navegadores antiguos
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.webkitdirectory = true;
+                    input.directory = true;
+                    input.multiple = true;
+                    input.style.display = 'none';
+                    
+                    input.onchange = function(e) {
+                        if (e.target.files.length > 0) {
+                            // Obtener la ruta relativa del primer archivo
+                            const filePath = e.target.files[0].webkitRelativePath || e.target.files[0].path;
+                            
+                            if (filePath) {
+                                // Extraer el nombre de la carpeta
+                                const folderPath = filePath.includes('/') 
+                                    ? filePath.substring(0, filePath.indexOf('/'))
+                                    : filePath.substring(0, filePath.lastIndexOf('\\'));
+                                
+                                // Intentar obtener la ruta completa (solo funciona en algunos navegadores)
+                                const fullPath = e.target.files[0].path || folderPath;
+                                
+                                document.getElementById('selectedFolderPath').textContent = `📁 ${fullPath}`;
+                                document.getElementById('selectedFolderPath').style.color = '#1DB954';
+                                document.getElementById('selectedFolderPath').style.fontWeight = '600';
+                                document.getElementById('customFolder').value = fullPath;
+                                
+                                // Mostrar el input de texto con la ruta
+                                const textInput = document.getElementById('customFolderText');
+                                textInput.style.display = 'block';
+                                textInput.value = fullPath;
+                                textInput.onchange = function() {
+                                    document.getElementById('customFolder').value = textInput.value;
+                                };
+                                
+                                showMessage('Carpeta seleccionada correctamente', 'success');
+                            } else {
+                                showMessage('No se pudo obtener la ruta. Por favor, escríbela manualmente.', 'error');
+                            }
+                        }
+                        document.body.removeChild(input);
+                    };
+                    
+                    document.body.appendChild(input);
+                    input.click();
+                }
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    console.error('Error al seleccionar carpeta:', error);
+                    // Si falla, mostrar un input de texto como alternativa
+                    const folderInput = document.createElement('input');
+                    folderInput.type = 'text';
+                    folderInput.id = 'customFolderText';
+                    folderInput.placeholder = 'Escribe la ruta completa de la carpeta';
+                    folderInput.style.width = '100%';
+                    folderInput.style.padding = '10px';
+                    folderInput.style.marginTop = '10px';
+                    folderInput.style.border = '2px solid #1DB954';
+                    folderInput.style.borderRadius = '5px';
+                    
+                    // Mostrar el input de texto como alternativa
+                    const textInput = document.getElementById('customFolderText');
+                    textInput.style.display = 'block';
+                    textInput.onchange = function() {
+                        document.getElementById('customFolder').value = textInput.value;
+                    };
+                    
+                    showMessage('El selector de carpeta no está disponible. Por favor, escribe la ruta manualmente en el campo de texto.', 'info');
+                }
+            }
         }
 
         async function getPlaylistInfo() {
@@ -474,7 +609,10 @@
 
         async function startDownload() {
             const playlistUrl = document.getElementById('playlistUrl').value.trim();
-            const customFolder = document.getElementById('customFolder').value.trim();
+            // Obtener la carpeta del input hidden o del input de texto si existe
+            const customFolderInput = document.getElementById('customFolder');
+            const customFolderText = document.getElementById('customFolderText');
+            const customFolder = (customFolderText && customFolderText.value.trim()) || customFolderInput.value.trim();
             
             const downloadBtn = document.getElementById('downloadBtn');
             downloadBtn.disabled = true;
