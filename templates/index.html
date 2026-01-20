@@ -445,6 +445,25 @@
                 // Intentar usar la File System Access API moderna (Chrome/Edge)
                 if ('showDirectoryPicker' in window) {
                     const directoryHandle = await window.showDirectoryPicker();
+                    
+                    // Solicitar permisos de escritura inmediatamente
+                    const permissionStatus = await directoryHandle.requestPermission({ mode: 'readwrite' });
+                    
+                    if (permissionStatus !== 'granted') {
+                        showMessage('Se requieren permisos de escritura para guardar archivos. Por favor, concede permisos y vuelve a intentar.', 'error');
+                        return;
+                    }
+                    
+                    // Verificar que podemos escribir (hacer una prueba)
+                    try {
+                        const testHandle = await directoryHandle.getFileHandle('.test_write_permission', { create: true });
+                        await directoryHandle.removeEntry('.test_write_permission');
+                    } catch (testError) {
+                        showMessage('⚠️ Advertencia: No se pudo verificar permisos de escritura en esta carpeta. Puede que sea una unidad externa sin permisos adecuados.', 'error');
+                        console.error('Error verificando permisos:', testError);
+                        // Continuar de todos modos, pero con advertencia
+                    }
+                    
                     selectedFolderHandle = directoryHandle;
                     
                     // Obtener el nombre de la carpeta
@@ -468,7 +487,7 @@
                         document.getElementById('customFolder').value = textInput.value;
                     };
                     
-                    showMessage('Carpeta seleccionada: ' + folderName + '. Completa la ruta completa en el campo de texto si es necesario.', 'success');
+                    showMessage('✅ Carpeta seleccionada correctamente. Las canciones se guardarán directamente aquí cuando se descarguen.', 'success');
                 } else {
                     // Fallback: usar input file con webkitdirectory para navegadores antiguos
                     const input = document.createElement('input');
