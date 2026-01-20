@@ -763,7 +763,22 @@
             const autoDownload = document.getElementById('autoDownload');
             autoDownload.style.display = 'block';
             
+            let successCount = 0;
+            let errorCount = 0;
+            const errors = [];
+            
             try {
+                // Verificar que aún tenemos permisos de escritura
+                if (!selectedFolderHandle) {
+                    throw new Error('Carpeta seleccionada ya no está disponible. Por favor, selecciona la carpeta nuevamente.');
+                }
+                
+                // Verificar permisos antes de empezar
+                const permissionStatus = await selectedFolderHandle.requestPermission({ mode: 'readwrite' });
+                if (permissionStatus !== 'granted') {
+                    throw new Error('Permisos de escritura denegados para la carpeta seleccionada.');
+                }
+                
                 for (let i = 0; i < files.length; i++) {
                     const filename = files[i];
                     const downloadUrl = `/api/download-file/${currentDownloadId}/${encodeURIComponent(filename)}`;
@@ -776,32 +791,83 @@
                         // Obtener el archivo del servidor como blob
                         const response = await fetch(downloadUrl);
                         if (!response.ok) {
-                            throw new Error(`Error al descargar ${filename}`);
+                            throw new Error(`Error HTTP ${response.status} al descargar ${filename}`);
                         }
                         
                         const blob = await response.blob();
+                        if (!blob || blob.size === 0) {
+                            throw new Error(`El archivo ${filename} está vacío`);
+                        }
+                        
+                        // Verificar permisos nuevamente antes de cada escritura (para unidades externas)
+                        const currentPermission = await selectedFolderHandle.requestPermission({ mode: 'readwrite' });
+                        if (currentPermission !== 'granted') {
+                            throw new Error(`Permisos de escritura denegados para ${filename}`);
+                        }
+                        
+                        // Limpiar caracteres especiales del nombre de archivo para evitar problemas
+                        const safeFilename = filename.replace(/[<>:"/\\|?*]/g, '_');
+                        
+                        // Verificar si el archivo ya existe y eliminarlo si es necesario
+                        try {
+                            const existingHandle = await selectedFolderHandle.getFileHandle(safeFilename);
+                            await selectedFolderHandle.removeEntry(safeFilename);
+                        } catch (e) {
+                            // El archivo no existe, continuar
+                        }
                         
                         // Crear un archivo en la carpeta seleccionada
-                        const fileHandle = await selectedFolderHandle.getFileHandle(filename, { create: true });
+                        const fileHandle = await selectedFolderHandle.getFileHandle(safeFilename, { create: true });
                         const writable = await fileHandle.createWritable();
-                        await writable.write(blob);
+                        
+                        // Escribir en chunks para archivos grandes
+                        const chunkSize = 1024 * 1024; // 1MB por chunk
+                        let offset = 0;
+                        
+                        while (offset < blob.size) {
+                            const chunk = blob.slice(offset, offset + chunkSize);
+                            await writable.write(chunk);
+                            offset += chunkSize;
+                        }
+                        
                         await writable.close();
+                        successCount++;
+                        
+                        console.log(`✓ Archivo guardado exitosamente: ${safeFilename} (${blob.size} bytes)`);
                     } catch (error) {
-                        console.error(`Error descargando ${filename}:`, error);
-                        // Continuar con la siguiente canción
-                        continue;
+                        errorCount++;
+                        const errorMsg = `Error al guardar ${filename}: ${error.message}`;
+                        console.error(errorMsg, error);
+                        errors.push(errorMsg);
+                        
+                        // Mostrar error individual pero continuar
+                        autoDownload.textContent = `⚠️ Error: ${filename} - Continuando...`;
+                        
+                        // Si hay muchos errores consecutivos, detener
+                        if (errorCount > 5) {
+                            throw new Error(`Demasiados errores (${errorCount}). Deteniendo descarga.`);
+                        }
                     }
                     
                     // Pequeña pausa entre descargas
-                    await new Promise(resolve => setTimeout(resolve, 500));
+                    await new Promise(resolve => setTimeout(resolve, 300));
                 }
                 
-                // Todas las canciones descargadas
+                // Mostrar resultado final
                 autoDownload.style.display = 'none';
-                showMessage(`¡Todas las ${files.length} canciones guardadas en la carpeta seleccionada!`, 'success');
+                
+                if (successCount === files.length) {
+                    showMessage(`¡Todas las ${successCount} canciones guardadas exitosamente en la carpeta seleccionada!`, 'success');
+                } else if (successCount > 0) {
+                    showMessage(`Se guardaron ${successCount} de ${files.length} canciones. ${errorCount} error(es). Ver consola para detalles.`, 'error');
+                    console.error('Errores detallados:', errors);
+                } else {
+                    throw new Error('No se pudo guardar ninguna canción. Ver consola para detalles.');
+                }
             } catch (error) {
-                console.error('Error en descarga:', error);
-                showMessage('Error al guardar en la carpeta seleccionada. Intentando descarga tradicional...', 'error');
+                console.error('Error crítico en descarga:', error);
+                autoDownload.style.display = 'none';
+                showMessage(`Error: ${error.message}. Intentando descarga tradicional como respaldo...`, 'error');
                 // Fallback a descarga tradicional
                 downloadToDefaultFolder(files);
             }
