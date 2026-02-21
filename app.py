@@ -350,14 +350,26 @@ def download_file(download_id, filename):
                     break
         
         if os.path.exists(file_path):
-            print(f"📤 Enviando archivo: {file_path} ({os.path.getsize(file_path)} bytes)")
+            file_size = os.path.getsize(file_path)
+            print(f"📤 Enviando archivo: {file_path} ({file_size} bytes)")
+            if file_size == 0:
+                print(f"⚠️ Advertencia: El archivo {filename} está vacío (0 bytes)")
             return send_file(
                 file_path,
                 as_attachment=True,
                 download_name=filename
             )
         else:
-            return jsonify({'error': 'Archivo no encontrado'}), 404
+            print(f"❌ Archivo no encontrado: {file_path}")
+            # Listar archivos disponibles para debug
+            if download_id in download_status and 'download_path' in download_status[download_id]:
+                search_path = download_status[download_id]['download_path']
+                print(f"📁 Archivos disponibles en {search_path}:")
+                if os.path.exists(search_path):
+                    for root, dirs, files in os.walk(search_path):
+                        for file in files:
+                            print(f"  - {file}")
+            return jsonify({'error': f'Archivo no encontrado: {filename}'}), 404
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
