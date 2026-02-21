@@ -697,19 +697,27 @@
                     updateProgress(data);
 
                     if (data.status === 'completed') {
-                        showMessage('¡Descarga completada! Iniciando descarga de canciones...', 'success');
                         document.getElementById('downloadLink').classList.add('show');
                         document.getElementById('downloadBtn').disabled = false;
-                        document.getElementById('downloadBtn').textContent = '⬇️ Descargar Playlist';
+                        document.getElementById('downloadBtn').textContent = '⬇️ Descargar';
                         document.getElementById('cancelBtn').style.display = 'none';
                         
-                        // Mostrar indicador de descarga automática
-                        document.getElementById('autoDownload').style.display = 'block';
-                        document.getElementById('autoDownload').textContent = '🎵 Descargando canciones una por una...';
-                        
-                        // Iniciar descarga de canciones individuales
+                        // Verificar que hay archivos para descargar
                         if (data.downloaded_files && data.downloaded_files.length > 0) {
+                            showMessage(`¡Descarga completada! Iniciando descarga de ${data.downloaded_files.length} canciones...`, 'success');
+                            
+                            // Mostrar indicador de descarga automática
+                            document.getElementById('autoDownload').style.display = 'block';
+                            document.getElementById('autoDownload').textContent = '🎵 Descargando canciones una por una...';
+                            
+                            // Iniciar descarga de canciones individuales
+                            console.log('Iniciando descarga de archivos:', data.downloaded_files);
                             downloadSongsIndividually(data.downloaded_files);
+                        } else {
+                            showMessage('⚠️ Error: No se encontraron archivos descargados. Verifica la consola del navegador (F12) para más detalles.', 'error');
+                            document.getElementById('autoDownload').style.display = 'block';
+                            document.getElementById('autoDownload').textContent = '❌ No se encontraron archivos para descargar';
+                            console.error('No hay archivos en downloaded_files:', data);
                         }
                     } else if (data.status === 'error') {
                         showMessage('Error en la descarga: ' + data.message, 'error');
@@ -768,12 +776,26 @@
         }
 
         async function downloadSongsIndividually(files) {
-            if (!currentDownloadId || !files || files.length === 0) return;
+            if (!currentDownloadId) {
+                console.error('No hay download_id disponible');
+                showMessage('Error: No hay ID de descarga disponible', 'error');
+                return;
+            }
+            
+            if (!files || files.length === 0) {
+                console.error('No hay archivos para descargar');
+                showMessage('Error: No hay archivos para descargar. Verifica que la descarga se completó correctamente.', 'error');
+                return;
+            }
+            
+            console.log(`Iniciando descarga de ${files.length} archivos`);
             
             // Si el usuario seleccionó una carpeta, usar la API para guardar directamente ahí
             if (selectedFolderHandle) {
+                console.log('Usando carpeta seleccionada por el usuario');
                 await downloadToSelectedFolder(files);
             } else {
+                console.log('Usando carpeta de descargas por defecto del navegador');
                 // Fallback: descarga tradicional a la carpeta de descargas del navegador
                 downloadToDefaultFolder(files);
             }
@@ -808,15 +830,22 @@
                         `🎵 Descargando canción ${i + 1}/${files.length}: ${filename}`;
                     
                     try {
+                        console.log(`Descargando archivo: ${downloadUrl}`);
+                        
                         // Obtener el archivo del servidor como blob
                         const response = await fetch(downloadUrl);
+                        
                         if (!response.ok) {
-                            throw new Error(`Error HTTP ${response.status} al descargar ${filename}`);
+                            const errorText = await response.text();
+                            console.error(`Error HTTP ${response.status}:`, errorText);
+                            throw new Error(`Error HTTP ${response.status} al descargar ${filename}: ${errorText}`);
                         }
                         
                         const blob = await response.blob();
+                        console.log(`Archivo descargado: ${filename}, tamaño: ${blob.size} bytes`);
+                        
                         if (!blob || blob.size === 0) {
-                            throw new Error(`El archivo ${filename} está vacío`);
+                            throw new Error(`El archivo ${filename} está vacío (0 bytes)`);
                         }
                         
                         // Verificar permisos nuevamente antes de cada escritura (para unidades externas)

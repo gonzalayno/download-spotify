@@ -185,9 +185,21 @@ def download_playlist(spotify_url, download_id, custom_folder=None):
         files_in_dir = []
         for root, dirs, files in os.walk(download_path):
             for file in files:
-                if file.endswith(('.mp3', '.m4a', '.webm')):
+                # Buscar cualquier archivo de audio
+                if file.endswith(('.mp3', '.m4a', '.webm', '.mp4', '.ogg', '.opus', '.flac', '.wav')):
+                    # Obtener solo el nombre del archivo, no la ruta completa
                     files_in_dir.append(file)
         
+        # Si no encontramos archivos, buscar todos los archivos en el directorio
+        if not files_in_dir:
+            print(f"⚠️ No se encontraron archivos de audio. Buscando todos los archivos en {download_path}")
+            for root, dirs, files in os.walk(download_path):
+                for file in files:
+                    if not file.startswith('.'):  # Ignorar archivos ocultos
+                        files_in_dir.append(file)
+                        print(f"  - Encontrado: {file}")
+        
+        print(f"📁 Total de archivos encontrados: {len(files_in_dir)}")
         download_status[download_id]['message'] = f'Descarga completada - {len(files_in_dir)} canciones listas'
         download_status[download_id]['downloaded_files'] = files_in_dir
         
