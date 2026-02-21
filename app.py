@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 import shutil
 import yt_dlp
+import urllib.parse
 from config import Config, print_config_errors
 
 app = Flask(__name__)
@@ -325,6 +326,9 @@ def cancel_download_endpoint(download_id):
 def download_file(download_id, filename):
     """Descargar archivo individual"""
     try:
+        # Decodificar el nombre del archivo (puede venir codificado)
+        filename = urllib.parse.unquote(filename)
+        
         # Obtener la ruta de descarga guardada en el estado
         if download_id in download_status and 'download_path' in download_status[download_id]:
             download_path = download_status[download_id]['download_path']
@@ -333,15 +337,20 @@ def download_file(download_id, filename):
             # Fallback: buscar en la carpeta por defecto
             file_path = os.path.join(DOWNLOAD_FOLDER, download_id, filename)
         
+        print(f"🔍 Buscando archivo: {file_path}")
+        
         if not os.path.exists(file_path):
             # Si no está ahí, buscar en todas las subcarpetas
             search_path = download_path if download_id in download_status and 'download_path' in download_status[download_id] else DOWNLOAD_FOLDER
+            print(f"🔍 Buscando en subdirectorios de: {search_path}")
             for root, dirs, files in os.walk(search_path):
-                if download_id in root and filename in files:
+                if filename in files:
                     file_path = os.path.join(root, filename)
+                    print(f"✅ Archivo encontrado en: {file_path}")
                     break
         
         if os.path.exists(file_path):
+            print(f"📤 Enviando archivo: {file_path} ({os.path.getsize(file_path)} bytes)")
             return send_file(
                 file_path,
                 as_attachment=True,
